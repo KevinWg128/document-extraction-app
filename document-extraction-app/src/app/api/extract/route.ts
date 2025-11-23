@@ -1,5 +1,34 @@
 import { GoogleGenAI, createPartFromUri } from "@google/genai";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import fs from "fs";
+import path from "path";
+
+const EducationSchema = z.object({
+    degree: z.string().describe("The degree of the person"),
+    field_of_study: z.string().describe("The field of study of the person"),
+    start_date: z.string().describe("The start date of the person"),
+    end_date: z.string().describe("The end date of the person"),
+});
+
+const WorkExperienceSchema = z.object({
+    company: z.string().describe("The company name"),
+    title: z.string().describe("The job title"),
+    start_date: z.string().describe("The start date"),
+    end_date: z.string().describe("The end date"),
+    description: z.string().describe("The job description"),
+});
+
+const ResumeSchema = z.object({
+    name: z.string().describe("The name of the person"),
+    email: z.string().describe("The email of the person"),
+    phone: z.string().describe("The phone number of the person"),
+    address: z.string().describe("The address of the person"),
+    skills: z.array(z.string()).describe("The skills of the person"),
+    education: z.array(EducationSchema).describe("The education of the person"),
+    work_experience: z.array(WorkExperienceSchema).describe("The work experience of the person"),
+});
 
 export async function POST(request: Request) {
     try {
@@ -11,6 +40,7 @@ export async function POST(request: Request) {
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
+        console.log(apiKey);
         if (!apiKey) {
             return NextResponse.json(
                 { error: "GEMINI_API_KEY is not set" },
@@ -21,10 +51,34 @@ export async function POST(request: Request) {
         const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const arrayBuffer = await file.arrayBuffer();
-        const fileBlob = new Blob([arrayBuffer], { type: file.type });
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Define upload directory
+        const uploadDir = path.join(process.cwd(), "uploads");
+
+        // Ensure upload directory exists
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        // Create a unique filename to avoid collisions
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const filename = `${timestamp}-${safeName}`;
+        const filePath = path.join(uploadDir, filename);
+
+        // Write file to local filesystem
+        fs.writeFileSync(filePath, buffer);
+        console.log(`File saved to: ${filePath}`);
+
+        // Read file back using fs.readFileSync as requested
+        const fileContent = fs.readFileSync(filePath);
+        console.log(`File successfully read back from ${filePath}, size: ${fileContent.length} bytes`);
+
+        const uploadBlob = new Blob([fileContent], { type: file.type });
 
         const uploadResult = await ai.files.upload({
-            file: fileBlob,
+            file: uploadBlob,
             config: {
                 displayName: file.name,
                 mimeType: file.type,
@@ -35,33 +89,26 @@ export async function POST(request: Request) {
             throw new Error('Upload failed: No file name returned.');
         }
 
-        let fileRecord = await ai.files.get({ name: uploadResult.name });
-        while (fileRecord.state === 'PROCESSING') {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            fileRecord = await ai.files.get({ name: uploadResult.name });
-        }
+        const prompt = "Extract the resume information from this document";
 
-        if (fileRecord.state === 'FAILED') {
-            throw new Error('File processing failed.');
-        }
+        const contents = [
+            { text: prompt },
+            {
+                inlineData: {
+                    mimeType: 'application/pdf',
+                    data: Buffer.from(fileContent).toString('base64')
+                }
+            }
+        ]
 
-        if (!fileRecord.uri || !fileRecord.mimeType) {
-            throw new Error('File URI or MIME type is missing.');
-        }
-
-        const prompt = "Extract the key information from this document in JSON format. Return ONLY the JSON object, no markdown formatting.";
 
         const response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        { text: prompt },
-                        createPartFromUri(fileRecord.uri, fileRecord.mimeType),
-                    ],
-                },
-            ],
+            model: "gemini-2.5-flash",
+            contents: contents,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: zodToJsonSchema(ResumeSchema),
+            },
         });
 
         const text = response.text;
