@@ -88,7 +88,7 @@ export async function POST(request: Request) {
             },
         });
 
-        return NextResponse.json(response);
+        return NextResponse.json(response.text);
 
     } catch (error) {
         console.error("Error processing document:", error);
