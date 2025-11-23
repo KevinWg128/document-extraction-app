@@ -1,9 +1,7 @@
-import { GoogleGenAI, createPartFromUri } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import fs from "fs";
-import path from "path";
 
 const EducationSchema = z.object({
     degree: z.string().describe("The degree of the person"),
