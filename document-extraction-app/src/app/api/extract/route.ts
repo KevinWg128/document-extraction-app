@@ -40,7 +40,6 @@ export async function POST(request: Request) {
         }
 
         const apiKey = process.env.GEMINI_API_KEY;
-        console.log(apiKey);
         if (!apiKey) {
             return NextResponse.json(
                 { error: "GEMINI_API_KEY is not set" },
@@ -51,29 +50,7 @@ export async function POST(request: Request) {
         const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // Define upload directory
-        const uploadDir = path.join(process.cwd(), "uploads");
-
-        // Ensure upload directory exists
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        // Create a unique filename to avoid collisions
-        const timestamp = Date.now();
-        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const filename = `${timestamp}-${safeName}`;
-        const filePath = path.join(uploadDir, filename);
-
-        // Write file to local filesystem
-        fs.writeFileSync(filePath, buffer);
-        console.log(`File saved to: ${filePath}`);
-
-        // Read file back using fs.readFileSync as requested
-        const fileContent = fs.readFileSync(filePath);
-        console.log(`File successfully read back from ${filePath}, size: ${fileContent.length} bytes`);
+        const fileContent = Buffer.from(arrayBuffer).toString("base64");
 
         const uploadBlob = new Blob([fileContent], { type: file.type });
 
@@ -96,7 +73,7 @@ export async function POST(request: Request) {
             {
                 inlineData: {
                     mimeType: 'application/pdf',
-                    data: Buffer.from(fileContent).toString('base64')
+                    data: fileContent
                 }
             }
         ]
@@ -111,20 +88,8 @@ export async function POST(request: Request) {
             },
         });
 
-        const text = response.text;
+        return NextResponse.json(response);
 
-        // Clean up markdown code blocks if present
-        const jsonString = (text || "").replace(/```json\n|\n```/g, "").trim();
-
-        let data;
-        try {
-            data = JSON.parse(jsonString);
-        } catch (e) {
-            // If parsing fails, return the raw text
-            data = { raw_text: text };
-        }
-
-        return NextResponse.json(data);
     } catch (error) {
         console.error("Error processing document:", error);
         return NextResponse.json(
