@@ -88,7 +88,10 @@ export async function POST(request: Request) {
             },
         });
 
-        return NextResponse.json(response.text);
+        const jsonString = (response.text || "").replace(/```json\n|\n```/g, "").trim();
+        const json = JSON.parse(jsonString);
+
+        return NextResponse.json(json);
 
     } catch (error) {
         console.error("Error processing document:", error);
