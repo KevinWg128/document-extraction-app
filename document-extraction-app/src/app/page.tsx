@@ -1,12 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
+import { ResumeData } from "../types/resume";
+
+const PDFExport = dynamic(
+  () => import("../components/PDFExport"),
+  {
+    ssr: false,
+    loading: () => <p className="text-sm text-gray-500">Loading PDF tools...</p>,
+  }
+);
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ResumeData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<"professional" | "modern">("professional");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -51,8 +62,12 @@ export default function Home() {
 
       const data = await response.json();
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred");
+      }
     } finally {
       setLoading(false);
     }
@@ -74,8 +89,8 @@ export default function Home() {
           <div className="p-8">
             <div
               className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors duration-200 ${file
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
                 }`}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -138,8 +153,8 @@ export default function Home() {
                 onClick={handleExtract}
                 disabled={!file || loading}
                 className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white transition-all duration-200 ${!file || loading
-                    ? "bg-gray-300 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5"
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5"
                   }`}
               >
                 {loading ? (
@@ -211,6 +226,35 @@ export default function Home() {
               <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-auto text-sm font-mono max-h-[500px]">
                 {JSON.stringify(result, null, 2)}
               </pre>
+
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Export to PDF</h4>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex space-x-4 mb-4 sm:mb-0">
+                    <button
+                      onClick={() => setSelectedTemplate("professional")}
+                      className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${selectedTemplate === "professional"
+                        ? "bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                    >
+                      Professional
+                    </button>
+                    <button
+                      onClick={() => setSelectedTemplate("modern")}
+                      className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${selectedTemplate === "modern"
+                        ? "bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500"
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                        }`}
+                    >
+                      Modern
+                    </button>
+                  </div>
+
+                  <PDFExport data={result} template={selectedTemplate} />
+                </div>
+              </div>
             </div>
           </div>
         )}
