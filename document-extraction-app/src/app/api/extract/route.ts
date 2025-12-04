@@ -2,6 +2,10 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { db } from "@/lib/db";
+import { documents } from "@/lib/db/schema";
 
 const EducationSchema = z.object({
     degree: z.string().describe("The degree of the person"),
@@ -30,6 +34,18 @@ const ResumeSchema = z.object({
 
 export async function POST(request: Request) {
     try {
+        // Authenticate user
+        const session = await auth.api.getSession({
+            headers: await headers(),
+        });
+
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
         const formData = await request.formData();
         const file = formData.get("file") as File;
 
@@ -88,6 +104,17 @@ export async function POST(request: Request) {
 
         const jsonString = (response.text || "").replace(/```json\n|\n```/g, "").trim();
         const json = JSON.parse(jsonString);
+
+        // Save extraction to database
+        await db.insert(documents).values({
+            id: crypto.randomUUID(),
+            userId: session.user.id,
+            fileName: file.name,
+            fileSize: file.size,
+            extractedData: json,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        });
 
         return NextResponse.json(json);
 

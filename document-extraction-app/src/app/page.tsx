@@ -3,6 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { ResumeData } from "../types/resume";
+import { UserMenu } from "@/components/user-menu";
 
 const PDFExport = dynamic(
   () => import("../components/PDFExport"),
@@ -76,6 +77,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-3xl mx-auto">
+        <UserMenu />
         <div className="text-center mb-10">
           <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
             Document <span className="text-blue-600">Extractor</span>
