@@ -1,12 +1,13 @@
 "use client";
 
-import { useUser } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export function UserMenu() {
-  const { data: user } = useUser();
+  const { data: session } = useSession();
+  const user = session?.user;
   const router = useRouter();
 
   const handleSignOut = async () => {
